@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>md2word · Markdown 转 Word 离线工具</title>
+    <link rel="stylesheet" href="vendor/katex.min.css" />
+    <link rel="stylesheet" href="css/preview.css" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="app-header">
+        <h1>md2word</h1>
+        <p class="subtitle">
+          把大模型输出的 Markdown 转成 Word（.docx）· 纯浏览器本地运行，文件不外传
+          <span id="math-status" class="badge badge-warn">公式引擎：加载中…</span>
+        </p>
+      </header>
+
+      <main class="layout">
+        <section class="panel">
+          <div class="panel-head">
+            <label for="md-input">Markdown 输入</label>
+            <span class="hint" id="char-count">0 字符</span>
+          </div>
+          <textarea
+            id="md-input"
+            spellcheck="false"
+            placeholder="在此粘贴 Markdown（支持 $…$ / $$…$$ 公式与管道表格），或点击「选择文件」导入 .md / .txt …"
+          ></textarea>
+          <div class="row">
+            <input
+              type="file"
+              id="file-input"
+              accept=".md,.markdown,.txt,text/markdown,text/plain"
+              hidden
+            />
+            <div class="btn-group">
+              <button class="btn btn-ghost btn-sm" id="btn-file" type="button">选择文件</button>
+              <button class="btn btn-ghost btn-sm" id="btn-sample" type="button">填入示例</button>
+              <button class="btn btn-ghost btn-sm" id="btn-clear" type="button">清空</button>
+            </div>
+            <span class="btn-sep" aria-hidden="true"></span>
+            <div class="btn-group">
+              <button class="btn btn-outline" id="btn-preview" type="button">预览</button>
+              <button class="btn btn-secondary" id="btn-copy" type="button">复制到 Word</button>
+            </div>
+          </div>
+
+          <div class="prompt-tip">
+            <div class="prompt-tip-head">
+              <label>给 AI 的提示词</label>
+              <button class="btn btn-ghost btn-sm" id="btn-copy-prompt" type="button">
+                复制提示词
+              </button>
+            </div>
+            <p class="prompt-text" id="prompt-text">请用标准 Markdown 输出：行内公式用 $...$，独立公式用 $$...$$，表格用 Markdown 管道语法；公式用 LaTeX，禁止 \(...\) 和 \[...\]；表格前后各空一行。</p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <label for="filename">导出文件名</label>
+          </div>
+          <div class="row">
+            <input type="text" id="filename" value="document" />
+            <span class="hint">.docx</span>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="table-style">表格样式</label>
+            <select id="table-style">
+              <option value="grid" selected>普通表格</option>
+              <option value="three-line">三线表</option>
+            </select>
+          </div>
+
+          <button class="btn btn-primary" id="btn-convert" type="button">
+            转换并下载 Word
+          </button>
+          <p class="status" id="status" role="status"></p>
+
+          <details class="features">
+            <summary>支持元素</summary>
+            <ul>
+              <li>标题（H1–H6，黑体加粗）</li>
+              <li>加粗 / 斜体 / 行内代码（Consolas）</li>
+              <li>有序 / 无序列表（含嵌套）</li>
+              <li>代码块（灰底等宽字体）</li>
+              <li>表格（可选普通表格 / 三线表）</li>
+              <li>引用块 / 分割线 / 超链接</li>
+              <li>数学公式：$…$、$$…$$、\(…\)、\[…\] → Word 原生可编辑公式（OMML）</li>
+            </ul>
+          </details>
+        </section>
+      </main>
+
+      <section class="preview-wrap" id="preview-wrap" hidden>
+        <div class="preview-head">
+          <h3>预览</h3>
+          <div class="preview-head-actions">
+            <span class="hint">预览仅供查看，不可直接复制；要粘进 Word 请用左侧「复制到 Word」</span>
+            <button class="btn btn-ghost btn-sm" id="btn-preview-close" type="button">收起</button>
+          </div>
+        </div>
+        <div class="preview-stage"><div class="page" id="preview-page"></div></div>
+      </section>
+    </div>
+
+    <!-- 解析与转换引擎（按依赖顺序加载） -->
+    <script src="vendor/marked.min.js"></script>
+    <script src="vendor/katex.min.js"></script>
+    <script src="vendor/mml2omml.xsl.js"></script>
+    <script src="js/zip.js"></script>
+    <script src="js/docx-builder.js"></script>
+    <script src="js/converter.js"></script>
+    <script src="js/math.js"></script>
+    <script src="js/preview.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

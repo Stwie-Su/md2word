@@ -1,0 +1,185 @@
+/* preview.css — Word 风格的 A4 纸面预览（与导出的 .docx 视觉对齐） */
+
+.preview-wrap {
+  margin-top: 22px;
+  border-top: 1px dashed var(--border);
+  padding-top: 14px;
+}
+
+.preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.preview-head h3 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* 头部右侧：说明文字 + 「收起」按钮，窄屏可换行 */
+.preview-head-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.preview-head-actions .btn {
+  flex: none;
+}
+
+.preview-stage {
+  background: #eef1f6;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  overflow: auto;
+  max-height: 720px;
+  cursor: default;
+}
+
+/* A4 纸面：210 × 297mm，页边距取 Word 中文默认值 */
+.page {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 25.4mm 31.8mm;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(16, 24, 40, 0.12);
+  box-sizing: border-box;
+  font-family: "Times New Roman", "宋体";
+  font-size: 12pt;
+  line-height: 1.5;
+  color: #1f2933;
+  word-wrap: break-word;
+  /* 预览只用于看排版：内容不可框选，取内容请用「复制到 Word」 */
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+}
+
+.page > *:first-child {
+  margin-top: 0;
+}
+
+.page p {
+  margin: 0 0 6pt 0;
+}
+
+.md-h1 {
+  margin: 14pt 0 6pt;
+  font-family: "黑体", sans-serif;
+  font-weight: bold;
+  font-size: 16pt;
+  line-height: 1.3;
+}
+.md-h2 {
+  margin: 14pt 0 6pt;
+  font-family: "黑体", sans-serif;
+  font-weight: bold;
+  font-size: 14pt;
+  line-height: 1.3;
+}
+.md-h3 {
+  margin: 12pt 0 6pt;
+  font-family: "黑体", sans-serif;
+  font-weight: bold;
+  font-size: 13pt;
+}
+.md-h4 {
+  margin: 12pt 0 6pt;
+  font-family: "黑体", sans-serif;
+  font-weight: bold;
+  font-size: 12pt;
+}
+.md-h5 {
+  margin: 10pt 0 4pt;
+  font-family: "黑体", sans-serif;
+  font-weight: bold;
+  font-size: 11pt;
+}
+.md-h6 {
+  margin: 10pt 0 4pt;
+  font-family: "黑体", sans-serif;
+  font-weight: bold;
+  font-size: 11pt;
+}
+
+.page ul,
+.page ol {
+  margin: 0 0 6pt 0;
+  padding-left: 24pt;
+}
+
+.page li {
+  margin: 2pt 0;
+}
+
+.page a {
+  color: #0563c1;
+}
+
+.page code {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 10.5pt;
+}
+
+.md-code {
+  margin: 0 0 8pt 0;
+  padding: 6pt 8pt;
+  background: #f2f2f2;
+  border-radius: 4px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 10pt;
+  line-height: 1.45;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.md-code code {
+  font-size: 10pt;
+  background: none;
+  padding: 0;
+}
+
+.md-quote {
+  margin: 0 0 8pt 0;
+  padding: 2pt 0 2pt 12pt;
+  border-left: 3pt solid #cccccc;
+  color: #595959;
+}
+
+.page hr {
+  border: none;
+  border-top: 1pt solid #cccccc;
+  margin: 12pt 0;
+}
+
+.md-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 0 8pt 0;
+  font-size: 10.5pt;
+}
+
+.md-table th,
+.md-table td {
+  border: 1px solid #000;
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.md-table th {
+  font-weight: bold;
+}
+
+/* 行间公式居中 */
+.page .katex-display {
+  margin: 8pt 0;
+}
