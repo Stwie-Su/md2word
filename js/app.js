@@ -162,8 +162,11 @@ $$
     return ok;
   }
 
-  // 把富文本 HTML 写入剪贴板；粘进 Word 可保留标题/加粗/列表/表格与公式
-  function copyRichHtml(html) {
+  // 降级方案：用 execCommand 复制 DOM 节点。
+  // **公式在这条路上会失效**——浏览器读 DOM 时会 parse+serialize，把 OMML 标签名小写化
+  //（<m:oMathPara> → <m:omathpara>），而 Word 对标签大小写敏感，公式会被拍平成一行文本。
+  // 只在 navigator.clipboard.write 不可用时兜底，至少保证文字/表格/样式能粘过去。
+  function copyViaExecCommand(html) {
     const holder = document.createElement('div');
     holder.setAttribute('contenteditable', 'true');
     holder.style.position = 'fixed';
@@ -187,6 +190,39 @@ $$
     return ok;
   }
 
+  // ★ 首选方案：把 HTML 作为「字符串原始字节」写进剪贴板。
+  // 这条路不经过 HTML 解析器，OMML 标签的大小写原样保留，Word 粘贴时能建成原生可编辑公式。
+  // 需要安全上下文（file:// 在 Chrome 里也算）且由用户手势触发；不可用时返回 false 走降级。
+  function copyRawHtml(html, plain) {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return Promise.resolve(false);
+    if (typeof ClipboardItem === 'undefined') return Promise.resolve(false);
+    try {
+      const item = new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      });
+      return navigator.clipboard.write([item]).then(
+        function () {
+          return true;
+        },
+        function () {
+          return false;
+        }
+      );
+    } catch (e) {
+      return Promise.resolve(false);
+    }
+  }
+
+  function htmlToPlain(html) {
+    return String(html)
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
   // 复制到 Word：公式为 Word-HTML 形态 OMML、样式全部内联（Word 粘贴时不认外部 CSS）
   function copyForWord() {
     const md = mdInput.value;
@@ -197,21 +233,30 @@ $$
     const btn = $('btn-copy');
     btn.disabled = true;
     setStatus('正在生成可复制的 Word 内容…', '');
-    initMathEngine().then(function () {
-      try {
+    initMathEngine()
+      .then(function () {
         const html = window.MD2PREVIEW.toWordHtml(md, currentTableStyle());
-        if (copyRichHtml(html)) {
-          setStatus('已复制，在 Word 中按 Ctrl+V 粘贴即可（公式为 Word 原生可编辑公式）', 'ok');
-        } else {
-          setStatus('复制失败，请改用「转换并下载 Word」', 'err');
-        }
-      } catch (err) {
+        return copyRawHtml(html, htmlToPlain(html)).then(function (rawOk) {
+          if (rawOk) {
+            setStatus('已复制：文字、表格、样式与公式都能直接用（公式是 Word 原生可编辑公式）', 'ok');
+          } else if (copyViaExecCommand(html)) {
+            setStatus(
+              '已复制，但当前浏览器不允许写入原生公式，公式会退化成文本；' +
+                '需要可双击编辑的公式请用「在 Word 中打开」',
+              'err'
+            );
+          } else {
+            setStatus('复制失败，请改用「在 Word 中打开」', 'err');
+          }
+        });
+      })
+      .catch(function (err) {
         console.error(err);
         setStatus('复制失败：' + (err && err.message ? err.message : err), 'err');
-      } finally {
+      })
+      .then(function () {
         btn.disabled = false;
-      }
-    });
+      });
   }
 
   function sanitizeFilename(name) {
@@ -264,7 +309,7 @@ $$
     setStatus('');
   });
 
-  // 转换并下载
+  // 转换并下载（Word 通常会自动打开下载到的 .docx）
   $('btn-convert').addEventListener('click', () => {
     const md = mdInput.value;
     if (!md.trim()) {
@@ -280,7 +325,11 @@ $$
         const uint8 = MD2DOCX.convertToDocx(md, { tableStyle: currentTableStyle() });
         const fname = sanitizeFilename(filenameInput.value) + '.docx';
         downloadDocx(uint8, fname);
-        setStatus('转换成功，已开始下载：' + fname + '（' + uint8.length + ' 字节）', 'ok');
+        setStatus(
+          '已生成 ' + fname + '（' + uint8.length + ' 字节），Word 通常会自动打开；' +
+            '若没有，到浏览器下载列表点一下即可。公式在 Word 里是可双击编辑的原生公式',
+          'ok'
+        );
       } catch (err) {
         console.error(err);
         setStatus('转换失败：' + (err && err.message ? err.message : err), 'err');

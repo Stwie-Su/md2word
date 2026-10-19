@@ -90,17 +90,33 @@
   }
 
   // 包成 Word 的条件注释块。
-  // ⚠️ 只保留 gte 分支，**绝不能再加 <![if !msEquation]> 兜底**：
-  //  `<![if !msEquation]>` 在 HTML5 里是 bogus comment（第一个 > 就结束），
-  //  经 Chrome 的 innerHTML → execCommand('copy') 序列化后，兜底内容会跑到条件注释块
-  //  **外面**变成可见文本——实测结果就是把 LaTeX 原样显示出来，公式全丢。
-  //  Word 2007+ 都满足 gte msEquation 12，不需要兜底。
+  // 实测结论（2026-10-16，Word 16.0 + 真实剪贴板）：
+  //   · Word 的剪贴板 HTML 导入器**认**条件注释里的 OMML，能做成原生公式，
+  //     但有两条硬要求：① `m:` 必须绑定到 2004 omml 命名空间；
+  //     ② **OMML 标签必须保持原始大小写** —— Word 对 `<m:oMathPara>` 与 `<m:omathpara>`
+  //        区别对待，后者会被拍平成一行 Unicode 文本（分数不堆叠、上下标平掉）。
+  //   · 因此复制路径**不能**用 document.execCommand('copy')（浏览器会 parse+serialize，
+  //     把标签小写化，必然失败），必须用 navigator.clipboard.write 写字符串原始字节。
+  //   · 命名空间声明放在公式最外层元素自身即可（实测 oMath=3）；放在最外层 div 上不够。
+  // 条件注释保留：Word 直接打开 .html 文件那条路（InsertFile）同样依赖它。
+  // 兜底用 LaTeX 而不是空串：引擎不可用/极老 Word 时至少标出公式位置，可粘进 Word 365 的
+  // LaTeX 公式输入或 MathType 的 Alt+\ 转换。
   function wrapEquation(ommlHtml, tex, display) {
     var body = ommlHtml;
     if (display && body.indexOf('<m:oMathPara') < 0) {
       body = '<m:oMathPara>' + body + '</m:oMathPara>';
     }
-    return '<!--[if gte msEquation 12]>' + body + '<![endif]-->';
+    // 在公式最外层元素上再声明一次命名空间（幂等：已有就不加）
+    body = body.replace(/^<m:(oMathPara|oMath)\b([^>]*)>/, function (m, tag, attrs) {
+      if (/xmlns:m=/.test(attrs)) return m;
+      return '<m:' + tag + ' xmlns:m="' + OMML_NS_2004 + '"' + attrs + '>';
+    });
+    var fb =
+      "<span lang=EN-US style='font-family:Consolas;font-size:9pt'>" + esc(tex) + '</span>';
+    return (
+      '<!--[if gte msEquation 12]>' + body + '<![endif]-->' +
+      '<![if !msEquation]>' + fb + '<![endif]-->'
+    );
   }
 
   function ommlHtmlMath(tex, display) {
@@ -350,8 +366,9 @@
       return render(md, { inline: false, math: 'katex' });
     },
     // 复制到 Word：公式为 Word-HTML 形态的 OMML（可被 Word 导入为原生可编辑公式），
-    // 样式全部内联。最外层 div 必须带 xmlns:m（Word-HTML 的 2004 omml 命名空间），
-    // 且不能写到 <m:oMath> 元素自身上——两者都声明会让 Word 的解析器直接报错。
+    // 样式全部内联。最外层 div 带 xmlns:m（Word-HTML 的 2004 omml 命名空间）；
+    // 每个公式的最外层元素也各自再声明一次（见 wrapEquation）——实测声明在最外层 div 上
+    // 对剪贴板导入不够，必须落在公式元素自身才能被 Word 认成原生公式。
     toWordHtml: function (md, tableStyle) {
       var inner = render(md, { inline: true, math: 'omml-html', tableStyle: tableStyle || 'grid' });
       inner = inner.replace(/<p style="/g, '<p class=MsoNormal style="');

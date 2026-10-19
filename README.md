@@ -24,38 +24,44 @@ python -m http.server 8080
 
 步骤：左侧粘贴 Markdown 或点「选择文件」导入 `.md` / `.txt`，右侧填导出文件名、切换表格样式，然后：
 
-- 点「转换并下载 Word」——得到 `.docx` 文件；
-- 点「预览」——下方按 A4 纸面显示排版效果，再点一次可收起；
-- 点「复制到 Word」——把内容写进剪贴板，打开 Word 按 Ctrl+V 直接粘贴。
+- 点「在 Word 中打开」——生成 `.docx` 并开始下载，Word 通常会自动打开它（**公式是可双击编辑的原生公式**）；
+- 点「复制到 Word」——把内容（含原生公式）写进剪贴板，打开 Word 按 Ctrl+V 直接粘贴，适合不想下载文件时；
+- 点「预览」——下方按 A4 纸面显示排版效果，再点一次可收起。
 
 ## 预览与复制
 
 预览按 A4 页面（210 × 297 mm）渲染，字体与缩进和导出的 `.docx` 一致，公式由 KaTeX 显示，仅用于查看效果。
 
-「复制到 Word」生成带内联样式的 HTML 写进剪贴板（Word 粘贴时不读外部 CSS，所以必须内联），
-粘进 Word 后标题、加粗、斜体、列表、表格都会保留。
+「复制到 Word」把内容以带内联样式的 HTML 写进剪贴板（Word 粘贴时不读外部 CSS，所以必须内联），
+粘进 Word 后标题、加粗、斜体、列表、表格都会保留，**公式也是可双击编辑的原生公式**。
 
-公式同样会保留为 **Word 原生可编辑公式（OMML）**，双击即可编辑。
+这里有一个必须注意的实现细节：复制走的是 `navigator.clipboard.write()` 写**字符串原始字节**，
+而不是把 DOM 节点交给 `document.execCommand('copy')`。因为浏览器在复制 DOM 时会解析并重新
+序列化 HTML，把 OMML 标签名小写化（`<m:oMathPara>` → `<m:omathpara>`）；而 Word 对这几个
+标签**大小写敏感**，小写之后公式会被拍平成一行普通文本（分数不再堆叠、上下标全部平掉）。
+写原始字节可以完整保留大小写，Word 才会把它建成原生公式。
 
-这里有个坑值得记录：Word 的 HTML 导入器**不认 docx 形态的 OMML**。直接把 `<m:oMath>` 塞进
-复制的 HTML，Word 会把它拍平成纯文本（`θ=[A1A2⋯AJσxyσz]⊤∈RJ+2`）。正确做法是先把 OMML 转成
-**Word 自己 SaveAs HTML 时用的那种形态**，要点有四：
+因此复制功能有两点前提：
 
-1. `<m:r><m:rPr>…</m:rPr><m:t>TEXT</m:t></m:r>` → `<m:r><m:rPr>…</m:rPr>TEXT</m:r>`（`<m:t>` 退化为直接文本）；
-2. run 外要包 `<i style='mso-bidi-font-style:normal'><span lang=EN-US style='font-family:"Cambria Math",serif'>`；
-3. `<m:ctrlPr>` 只注入到 Word 也会输出的 `*Pr` 里——**绝不能注入 `<m:mcPr>`**，否则 Word 的 HTML 解析器会直接报错、打不开文件；
-4. 剥掉 `<m:argPr>`、`<m:baseJc>`，并去掉 `<m:oMath>` 上的 `xmlns:m` 局部声明，让 `m:` 继承最外层元素上的 `http://schemas.microsoft.com/office/2004/12/omml`。
+（1）页面需在安全上下文打开（双击 `file://` 或 `https`/`localhost` 都满足）；
+（2）复制动作由点击触发（浏览器要求用户手势）。
 
-公式整体还要包在 `<!--[if gte msEquation 12]> … <![endif]-->` 条件注释里。
-以上结论在 Word 16.0（Office 2019/2021，Build 17932）上实测：8 个公式（含矩阵、上下标）
-全部导入为原生 OMML，PDF 中可检出 CambriaMath 字体。
+若浏览器不支持或写入被拒绝，会自动降级为 `execCommand('copy')`：文字、表格、样式仍能粘过去，
+但公式会退化为文本，此时建议改用「在 Word 中打开」。
 
 另外界面上有「复制提示词」按钮，可把一段要求 AI 输出标准 Markdown 的提示词复制走，
 直接贴给大模型，能减少 `\(...\)` 之类不兼容写法。
 
 ## 公式
 
-支持的定界符：`$…$`、`$$…$$`、`\(…\)`、`\[…\]`。公式导出为 Word 原生 OMML；如需 MathType，可在 Word 中用 MathType 插件转换。
+支持的定界符：`$…$`、`$$…$$`、`\(…\)`、`\[…\]`（后两种会自动归一化）。
+
+两条输出路径都给的是 Word 原生 OMML、可双击编辑：
+
+（1）「在 Word 中打开」→ `.docx` 内的 `<m:oMath>`；
+（2）「复制到 Word」→ 剪贴板里的 Word-HTML 形态 OMML（条件注释块 + `msEquation`）。
+
+如需 MathType，可在 Word 中用 MathType 插件对已有公式做转换。
 
 ## 项目结构
 
