@@ -64,10 +64,8 @@
   // display：是否为行间公式。必须如实传给 KaTeX —— \tag / \displaystyle / \limits 等
   // 仅在特定模式下合法，传错会导致 KaTeX 抛 “\tag works only in display mode” 之类的错误，
   // 进而整条公式降级成裸文本。
-  function texToMathmlElement(tex, display) {
-    const katex = global.katex;
-    if (!katex) throw new Error('KaTeX 未加载');
-    const html = katex.renderToString(tex, {
+  function renderMathml(tex, display) {
+    const html = global.katex.renderToString(tex, {
       output: 'mathml',
       strict: false,
       throwOnError: false,
@@ -75,7 +73,18 @@
     });
     const div = document.createElement('div');
     div.innerHTML = html;
-    const mathEl = div.querySelector('math');
+    return div.querySelector('math');
+  }
+
+  function texToMathmlElement(tex, display) {
+    const katex = global.katex;
+    if (!katex) throw new Error('KaTeX 未加载');
+    let mathEl = renderMathml(tex, display);
+    // 有些 LaTeX 构造（\tag、\displaystyle、\limits 等）只在 display 模式合法。
+    // 公式若被当作行内（display=false）解析却含这类构造，KaTeX 在 mathml 输出下
+    // 不会产出 <math> 元素，导致下游转换抛 “KaTeX 未产出 <math> 元素” 而整条公式
+    // 退化成红字裸文本。这里自动用相反模式重试一次，优先救活公式。
+    if (!mathEl && !display) mathEl = renderMathml(tex, true);
     if (!mathEl) throw new Error('KaTeX 未产出 <math> 元素: ' + tex);
     return mathEl;
   }
